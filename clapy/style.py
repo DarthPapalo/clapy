@@ -1,12 +1,15 @@
 from dataclasses import dataclass
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class ClapyRichStyle:
+    """
+    Theme used to format Clapy output when using `rich`.
+    """
     command_help: str = ""
     usage: str = "b magenta"
-    subcommand: str = "magenta"
-    sub_command: str = "i hot_pink"
+    subcommand: str = "i hot_pink"
+    subcommand_help: str = ""
 
     title: str = "b magenta"
 

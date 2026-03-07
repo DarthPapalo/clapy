@@ -1,6 +1,6 @@
 import pytest
 from clapy.argument import Arg, ArgAction
-from clapy.command import Command, ParsedCommand, ClapyParsingError
+from clapy.command import Command, ParsedCommand
 
 
 def test_basic_cli():
@@ -50,7 +50,7 @@ def test_lists_args():
         .argument(Arg("debug").long("--debug").short("-d").action(ArgAction.StoreTrue))
     )
 
-    with pytest.raises(ClapyParsingError):
+    with pytest.raises(SystemExit) as ex:
         cli.parse_from(
             [
                 "--programs-paths",
@@ -66,8 +66,9 @@ def test_lists_args():
                 "--debug",
             ]
         )
+        assert ex.value.code == 1
 
-    with pytest.raises(ClapyParsingError):
+    with pytest.raises(SystemExit) as ex:
         cli.parse_from(
             [
                 "--programs-paths",
@@ -81,6 +82,7 @@ def test_lists_args():
                 "--debug",
             ]
         )
+        assert ex.value.code == 1
 
     parsed = cli.parse_from(
         [

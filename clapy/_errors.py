@@ -4,6 +4,11 @@ from enum import Enum, auto
 import importlib.util
 
 
+ARGUMENT_RICH_ERROR_PREFIX = "[bright_red]Argument error:[/bright_red] "
+ARGUMENT_ERROR_PREFIX = "Argument error: "
+PARSING_RICH_ERROR_PREFIX = "[bright_red]Parsing error:[/bright_red] "
+PARSING_ERROR_PREFIX = "Parsing error: "
+
 class ClapyErrors(Enum):
     # Parsing errors
     NO_ARGUMENTS = auto()
@@ -37,7 +42,10 @@ if using_rich:
     # Error msgs WITH rich implementation
     ERROR_MSGS = {
         ClapyErrors.NO_ARGUMENTS: "No arguments supplied for command [yellow]'{}'",
-        ClapyErrors.MISSING_MANDATORY_SUBCOMMAND: "Missing mandatory subcommand for command [yellow]'{}'[/yellow]. Options: [cyan]{}",
+        ClapyErrors.MISSING_MANDATORY_SUBCOMMAND: (
+            "Missing mandatory subcommand for command [yellow]'{}'[/yellow]. Options: [cyan]{}[/cyan]\n"
+            "[bright_black]Note: Use [grey78]{}[/grey78] to show command help[/bright_black]"
+        ),
         ClapyErrors.REPEATED_ARGUMENT: "Repeated argument [yellow]'{}'",
         ClapyErrors.INVALID_NAMED_ARGUMENT_VALUES: "Invalid value for named argument [yellow]'{}'[/yellow]: [bright_red]'{}'[/bright_red]. Valid values: [cyan]{}",
         ClapyErrors.WRONG_VALUE_TYPE: "Wrong value type{} for argument [yellow]'{}'[/yellow]. Wrong values: [cyan]{}",
@@ -55,7 +63,10 @@ else:
     # Error msgs WITHOUT rich implementation
     ERROR_MSGS = {
         ClapyErrors.NO_ARGUMENTS: "No arguments supplied for command '{}'",
-        ClapyErrors.MISSING_MANDATORY_SUBCOMMAND: "Missing mandatory subcommand for command '{}'. Options: {}",
+        ClapyErrors.MISSING_MANDATORY_SUBCOMMAND: (
+            "Missing mandatory subcommand for command '{}'. Options: {}\n"
+            "Note: Use {} to show command help"
+        ),
         ClapyErrors.REPEATED_ARGUMENT: "Repeated argument '{}'",
         ClapyErrors.INVALID_NAMED_ARGUMENT_VALUES: "Invalid value for named argument '{}': '{}' (Valid values: {})",
         ClapyErrors.WRONG_VALUE_TYPE: "Wrong value type{} for argument '{}'. Wrong values: {}",

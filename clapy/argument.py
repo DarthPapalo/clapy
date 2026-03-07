@@ -1,6 +1,6 @@
 """Argument module from Clapy."""
 
-from ._errors import using_rich, ClapyErrors, ERROR_MSGS
+from ._errors import using_rich, ClapyErrors, ERROR_MSGS, ARGUMENT_RICH_ERROR_PREFIX, ARGUMENT_ERROR_PREFIX
 
 import sys
 from re import fullmatch
@@ -101,11 +101,10 @@ class _ArgData:
             if using_rich:
                 from rich.console import Console
 
-                Console().print(e.msg, highlight=False)
+                Console(stderr=True).print(ARGUMENT_RICH_ERROR_PREFIX + e.msg, highlight=False)
             else:
-                print(e.msg)
+                print(ARGUMENT_ERROR_PREFIX + e.msg, file=sys.stderr)
 
-            # raise e  # Enable this line so pytest can catch exceptions
             sys.exit(1)
 
 
