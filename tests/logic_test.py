@@ -67,7 +67,7 @@ def test_lists_args():
                 "--debug",
             ]
         )
-        assert ex.value.code == 1
+    assert ex.value.code == 1
 
     with pytest.raises(SystemExit) as ex:
         cli.parse_from(
@@ -83,7 +83,7 @@ def test_lists_args():
                 "--debug",
             ]
         )
-        assert ex.value.code == 1
+    assert ex.value.code == 1
 
     parsed = cli.parse_from(
         [
@@ -217,7 +217,7 @@ def test_default_argument_values():
 
     with pytest.raises(SystemExit) as ex:
         cli.parse_from(["--option-one", "value_1"])
-        assert ex.value.code == 1
+    assert ex.value.code == 1
 
 
 def test_flag_arguments():

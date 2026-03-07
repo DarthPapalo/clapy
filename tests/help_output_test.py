@@ -21,6 +21,32 @@ def rich_to_ansi(markup: str) -> str:
     return buffer.getvalue()
 
 
+# Tests
+def test_help_triggering():
+    cli: Command = (
+        Command("my-app")
+        .arguments([Arg("debug").short("-d").flag().propagate()])
+        .subcommand(
+            Command("download-data").arguments(
+                [Arg("output").short("-o"), Arg("additional").short("-a")]
+            )
+        )
+        .mandatory_subcommand(False)
+    )
+
+    with pytest.raises(SystemExit) as ex:
+        cli.parse_from(["download-data", "-o", "test"])
+    assert ex.value.code == 1
+
+    with pytest.raises(SystemExit) as ex:
+        cli.parse_from(["download-data"])
+    assert ex.value.code == 0
+
+    with pytest.raises(SystemExit) as ex:
+        cli.parse_from([])
+    assert ex.value.code == 0
+
+
 def test_default_help(capsys: pytest.CaptureFixture[str]):
     cli = (
         Command("my-app")

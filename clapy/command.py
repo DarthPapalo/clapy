@@ -378,17 +378,13 @@ class Command:
         # Assert each command has an arg_list after it
         assert len(command_chain) == len(subarg_lists)
 
-        # Check no args on commands, starting from the last called from the command_chain
-        for j, args_list in enumerate(subarg_lists[::-1]):
-            i: int = len(subarg_lists) - 1 - j
-            if len(args_list) == 0:
-                if command_chain[i].data.no_args_requests_help:
-                    command_chain[i]._show_help()
-                raise ClapyParsingError(
-                    ERROR_MSGS[ClapyErrors.NO_ARGUMENTS].format(
-                        command_chain[i].data.name
-                    )
-                )
+        # Check for no args on last command
+        if len(subarg_lists[-1]) == 0:
+            if command_chain[-1].data.no_args_requests_help:
+                command_chain[-1]._show_help()
+            raise ClapyParsingError(
+                ERROR_MSGS[ClapyErrors.NO_ARGUMENTS].format(command_chain[-1].data.name)
+            )
 
         # Check mandatory subcommand or show help
         if (
