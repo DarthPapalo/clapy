@@ -31,7 +31,7 @@ module-name = "clapy"
 module-root = ""
 
 [tool.ty.src]
-include = ["./clapy/"]
+include = ["./clapy", "./tests"]
 
 [tool.pytest]
 testpaths = ["tests"]

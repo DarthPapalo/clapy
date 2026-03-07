@@ -24,6 +24,7 @@ from clapy.argument import (
     ParsedArg,
     _ArgData,
 )
+from clapy.parsed_command import ParsedCommand
 from clapy.style import ClapyRichStyle
 
 NAMED_ARGUMENTS_STOP_TOKEN = "--"
@@ -37,108 +38,6 @@ class ClapyParsingError(Exception):
     """
 
     msg: str
-
-
-@dataclass(slots=True)
-class ClapyParsedCommandError(Exception):
-    """
-    Clapy Exception class for errors occurred when fetching from a ParsedCommand.
-    """
-
-    msg: str
-
-
-class ParsedCommand:
-    """
-    Result obtained from parsing a `Command` and it's subcommands according to some arguments.
-    Contains several methods to obtain the parsed arguments.
-    """
-
-    name: str
-    _parsed_subcommand: ParsedCommand | None
-    _parsed_arguments: dict[str, ParsedArg]
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-        self._parsed_subcommand = None
-        self._parsed_arguments = {}
-
-    def subcommand(self) -> ParsedCommand | None:
-        """
-        Returns the invoked parsed subcommand.
-        """
-        return self._parsed_subcommand
-
-    def subcommand_name(self) -> str | None:
-        """
-        Returns the invoked parsed subcommand name or None if none where invoked.
-        """
-        if self._parsed_subcommand is not None:
-            return self._parsed_subcommand.name
-        return None
-
-    def get_any(self, id: str) -> Any | None:
-        """
-        Returns the value or values associated with an argument if it was parsed.
-        Doesn't make any checks.
-        """
-        parsed_arg: ParsedArg | None = self._parsed_arguments.get(id, None)
-        if parsed_arg is not None:
-            return parsed_arg.value
-        return None
-
-    def get_one(self, id: str) -> Any | None:
-        """
-        Returns the value associated with an argument if it was parsed.
-        Raises an Exception if there are several values, use `get_many` or `get_any` instead.
-        """
-        parsed_arg: ParsedArg | None = self._parsed_arguments.get(id, None)
-        if parsed_arg is not None:
-            assert parsed_arg.action in (ArgAction.Set, ArgAction.Append)
-            if isinstance(parsed_arg.value, tuple):
-                raise ClapyParsedCommandError(
-                    f"Using get_one to retrieve a tuple of values from argument '{id}'. Use get_many or get_any instead."
-                )
-            return parsed_arg.value
-        return None
-
-    def get_many(self, id: str, *, force: bool = False) -> tuple[Any, ...] | None:
-        """
-        Returns the tuple of values associated with an argument if it was parsed.
-        Raises an Exception if there is only one value, use `force` to get the value(s) into a tuple.
-        """
-        parsed_arg: ParsedArg | None = self._parsed_arguments.get(id, None)
-        if parsed_arg is not None:
-            assert parsed_arg.action in (ArgAction.Set, ArgAction.Append)
-            if not isinstance(parsed_arg.value, tuple):
-                if force:
-                    return (parsed_arg.value,)
-                raise ClapyParsedCommandError(
-                    f"Using get_many to retrieve a single value from argument '{id}'. Use get_one, get_any or this method with 'force' instead."
-                )
-
-            return parsed_arg.value
-        return None
-
-    def get_flag(self, id: str) -> bool | None:
-        """
-        Returns the value of a flag argument (An argument with either the StoreTrue or StoreFalse action).
-        """
-        parsed_arg: ParsedArg | None = self._parsed_arguments.get(id, None)
-        if parsed_arg is not None:
-            assert parsed_arg.action in [ArgAction.StoreFalse, ArgAction.StoreTrue]
-            return parsed_arg.value
-        return None
-
-    def get_count(self, id: str) -> int | None:
-        """
-        Returns the amount of times a counted argument appeared (An argument with the Count action).
-        """
-        parsed_arg: ParsedArg | None = self._parsed_arguments.get(id, None)
-        if parsed_arg is not None:
-            assert parsed_arg.action is ArgAction.Count
-            return parsed_arg.value
-        return None
 
 
 @dataclass(slots=True)
@@ -533,7 +432,7 @@ class Command:
             list[list[str]]
         )  # Arg alias : List of lists of consumed values
 
-        # Parse named arguments from lists
+        # === Parse named arguments from lists ===
         for args in arg_lists:
             i: int = 0
             while i < len(args):
@@ -612,7 +511,7 @@ class Command:
             # Remove the id so we know it was parsed
             named_args_ids_map.pop(arg_data.id)
 
-        # Check unparsed arguments
+        # ====== Check unparsed arguments ======
         for arg_data in named_args_ids_map.values():
             # Manage actions default values.
             match arg_data.action:
@@ -668,8 +567,8 @@ class Command:
 
         consumed_values: list[list[str]] = []  # List of List
 
+        # === Parse positional arguments from lists ===
         positional_data_i: int = 0
-        # Parse positional arguments from lists
         for args in arg_lists:
             arg_i: int = 0
             while arg_i < len(args) and positional_data_i < len(
@@ -703,6 +602,7 @@ class Command:
             assert (
                 arg_data.action is ArgAction.Set
             )  # Positional arguments must be Action.Set
+
             # Check if no values where consumed for the argument
             if values is None:
                 if arg_data.default is not None:

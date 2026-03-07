@@ -207,18 +207,26 @@ class Arg:
         self.data.valid_values = set(valid_options)
         return self
 
-    def flag(self) -> Arg:
+    def append(self) -> Arg:
+        """
+        Makes the argument appendable (It can appear multiple times, values are appended to a list).
+        Same as setting the action to ArgAction.Append.
+        """
+        self.action(ArgAction.Append)
+        return self
+
+    def flag(self, store_true: bool = True) -> Arg:
         """
         Makes the argument a flag.
-        Same as setting the action to Action.StoreTrue.
+        Same as setting the action to ArgAction.StoreTrue.
         """
-        self.action(ArgAction.StoreTrue)
+        self.action(ArgAction.StoreTrue if store_true else ArgAction.StoreFalse)
         return self
 
     def count(self) -> Arg:
         """
         Makes the argument a count argument.
-        Same as setting the action into Action.Count.
+        Same as setting the action into ArgAction.Count.
         """
         self.action(ArgAction.Count)
         return self

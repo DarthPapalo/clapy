@@ -21,11 +21,15 @@ class ClapyErrors(Enum):
     INVALID_POSITIONAL_ARGUMENT_VALUES = auto()
     UNKNOWN_EXTRA_ARGUMENTS = auto()
     MISSING_VALUES = auto()
+
     # Argument errors
     NEGATIVE_VALUES_AMOUNT = auto()
     TOO_HIGH_VALUES_AMOUNT = auto()
     INVALID_SHORT_ALIAS = auto()
     INVALID_LONG_ALIAS = auto()
+
+    # Parsed command errors
+    INVALID_ARGUMENT_ID = auto()
 
 
 using_rich: bool = False
@@ -58,6 +62,7 @@ if using_rich:
         ClapyErrors.TOO_HIGH_VALUES_AMOUNT: "Argument [yellow]'{}'[/yellow] can't have multiple associated values with [cyan]StoreTrue, StoreFalse or Count[/cyan] actions",
         ClapyErrors.INVALID_SHORT_ALIAS: "Short argument alias can only be a single character: [bright_red]{}",
         ClapyErrors.INVALID_LONG_ALIAS: "Long argument alias should start with -- and have at least 2 characters: [bright_red]{}",
+        ClapyErrors.INVALID_ARGUMENT_ID: "No parsed argument found for id [yellow]'{}'[/yellow]",
     }
 else:
     # Error msgs WITHOUT rich implementation
@@ -78,4 +83,5 @@ else:
         ClapyErrors.TOO_HIGH_VALUES_AMOUNT: "Argument '{}' can't have multiple associated values with StoreTrue, StoreFalse or Count actions",
         ClapyErrors.INVALID_SHORT_ALIAS: "Short argument alias can only be a single character: {}",
         ClapyErrors.INVALID_LONG_ALIAS: "Long argument alias should start with -- and have at least 2 characters: {}",
+        ClapyErrors.INVALID_ARGUMENT_ID: "No parsed argument found for id '{}'",
     }
