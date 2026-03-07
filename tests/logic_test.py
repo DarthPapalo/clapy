@@ -5,7 +5,7 @@ from clapy.command import Command, ParsedCommand, ClapyParsingError
 
 def test_basic_cli():
     cli: Command = (
-        Command("test-prog")
+        Command("my-app")
         .argument(Arg("positional"))
         .argument(Arg("option").default(5).value_parser(int))
     )
@@ -23,7 +23,7 @@ def test_lists_args():
     POSSIBLE_DATA_TYPES: list[str] = ["Genome", "Gene"]
 
     cli: Command = (
-        Command("lists-test")
+        Command("my-app")
         .argument(
             Arg("programs-paths")
             .long("--programs-paths")

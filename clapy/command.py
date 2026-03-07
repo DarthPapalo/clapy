@@ -1,5 +1,7 @@
 """Command module from Clapy."""
 
+from ._errors import using_rich, ClapyErrors, ERROR_MSGS
+
 import sys
 from re import fullmatch
 from itertools import chain, zip_longest
@@ -8,12 +10,12 @@ from collections import defaultdict
 from typing import Any, Literal, Iterable, cast
 from dataclasses import dataclass, field
 
+from clapy.style import ClapyRichStyle
 from clapy.argument import (
     Arg,
     ParsedArg,
     ArgAction,
     _ArgData,
-    ClapyArgumentError,
     SHORT_EXPANDABLE_ALIAS_REGEX,
     SHORT_ALIAS_REGEX,
     LONG_ALIAS_REGEX,
@@ -28,6 +30,15 @@ NAMED_ARGUMENT_INLINE_VALUE_SEPARATOR = "="
 class ClapyParsingError(Exception):
     """
     Clapy Exception class for errors occurred during argument parsing.
+    """
+
+    msg: str
+
+
+@dataclass(slots=True)
+class ClapyParsedCommandError(Exception):
+    """
+    Clapy Exception class for errors occurred when fetching from a ParsedCommand.
     """
 
     msg: str
@@ -81,7 +92,7 @@ class ParsedCommand:
         if parsed_arg is not None:
             assert parsed_arg.action in (ArgAction.Set, ArgAction.Append)
             if isinstance(parsed_arg.value, tuple):
-                raise ClapyArgumentError(
+                raise ClapyParsedCommandError(
                     f"Using get_one to retrieve a tuple of values from argument '{id}'. Use get_many or get_any instead."
                 )
             return parsed_arg.value
@@ -98,7 +109,7 @@ class ParsedCommand:
             if not isinstance(parsed_arg.value, tuple):
                 if force:
                     return (parsed_arg.value,)
-                raise ClapyArgumentError(
+                raise ClapyParsedCommandError(
                     f"Using get_many to retrieve a single value from argument '{id}'. Use get_one, get_any or this method with 'force' instead."
                 )
 
@@ -133,10 +144,11 @@ class _CommandData:
     """
 
     name: str
+    rich_style: ClapyRichStyle | None = None
     mandatory_subcommand: bool = True
     no_args_requests_help: bool = True
     help_options: list[str] = field(default_factory=lambda: ["--help", "-h"])
-    help_print_method: Callable[[str], None] = print
+    help_print_method: Callable[[str], None] | None = None
     help: str | None = None
     arguments: list[Arg] = field(default_factory=list)
     subcommands: dict[str, Command] = field(default_factory=dict)
@@ -159,6 +171,13 @@ class Command:
     # =============================================
     #                Builder methods
     # =============================================
+    def style(self, style: ClapyRichStyle) -> Command:
+        """
+        Set a custom ClapyRichStyle to format the help output when using the `rich` libary.
+        """
+        self.data.rich_style = style
+        return self
+
     def mandatory_subcommand(self, yes: bool) -> Command:
         """
         If the Command has subcommands, using one of them will be mandatory.
@@ -202,8 +221,7 @@ class Command:
         Adds multiple arguments to the command.
         """
         for arg in args:
-            arg.data.validate()
-            self.data.arguments.append(arg)
+            self.argument(arg)
         return self
 
     def subcommand(self, c: Command) -> Command:
@@ -216,15 +234,56 @@ class Command:
         return self
 
     # =============================================
-    #                 Info methods
+    #                 Help methods
     # =============================================
     def _show_help(self) -> None:
-        help_print = self.data.help_print_method
+        help_print: Callable[[str], None] | None = self.data.help_print_method
+        style: ClapyRichStyle | None = self.data.rich_style
+        using_rich_override: bool = False
 
-        # ========= Print current command help =========
-        current_command_help: str = ""
-        if self.data.help is not None:
-            current_command_help = self.data.help + "\n"
+        if help_print is None:
+            # Inherit help print method if possible
+            last_parent: Command | None = self._parent
+            while last_parent is not None:
+                if last_parent.data.help_print_method is not None:
+                    help_print = last_parent.data.help_print_method
+                    break
+                last_parent = last_parent._parent
+            
+            if help_print is None:
+                # If no inherited help print method
+                if using_rich:
+                    from rich.console import Console
+                    import functools
+
+                    help_print = functools.partial(Console().print, highlight=False)
+                    using_rich_override = True
+                else:
+                    # If no inherited method AND no rich -> Use default python's print
+                    help_print = print
+
+
+        # ============ Set up rich style ============
+        # We always set it even if (using_rich_override == False) to avoid typing errors...
+        if style is None:
+            # Inherit style if possible
+            last_parent: Command | None = self._parent
+            while last_parent is not None:
+                if last_parent.data.rich_style is not None:
+                    style = last_parent.data.rich_style
+                    break
+                last_parent = last_parent._parent
+            
+            if style is None:
+                # If no inherited style -> Load default ClapyRichStyle
+                style = ClapyRichStyle()
+
+        def apply_style(text: str, style: str) -> str:
+            return (
+                f"[{style}]{text}[/{style}]"
+                if (using_rich_override and len(style) > 0)
+                else text
+            )
 
         # ================ Print usage =================
         full_command_path: str = f"{self.data.name}"
@@ -243,38 +302,52 @@ class Command:
         for n in [a.data for a in self.data.arguments if a.data.is_named()]:
             full_named_names += f" {n.alias_help_text()} |"
 
+        usage = (
+            f"{apply_style("Usage: ", style.usage)}"
+            f"{full_command_path} "
+            f"{full_positional_names}{f"[{full_named_names[:-2]}]" if len(full_named_names[:-2]) > 0 else ""}\n"
+        )
+
+        # ========= Print current command help =========
+        command_help: str = (
+            f"{apply_style(self.data.help, style.command_help)}\n"
+            if self.data.help is not None
+            else ""
+        )
+
         # ========= Print Subcommands =========
         subcommands_available: str = ""
         if len(self.data.subcommands) > 0:
-            subcommands_available += "Subcommands:\n"
+            subcommands_available += (
+                f"{apply_style("Subcommands:", style.sub_command)}\n"
+            )
             for sub_cmd in self.data.subcommands.values():
-                subcommands_available += f"    {sub_cmd.data.name}{f': {sub_cmd.data.help}' if sub_cmd.data.help is not None else ''}\n"
+                subcommands_available += f"    {apply_style(sub_cmd.data.name, style.sub_command)}{f": {sub_cmd.data.help}" if sub_cmd.data.help is not None else ''}\n"
 
-        # ========= Print arguments ===========
+        # ========= Print THIS Command arguments ===========
         named_arguments: str = (
-            "Named arguments:\n"
+            (f"\n{apply_style("Named arguments:", style.title)}\n")
             if len([a for a in self.data.arguments if a.data.is_named()]) > 0
             else ""
         )
+
         positional_arguments: str = (
-            "Positional arguments:\n"
+            (f"\n{apply_style("Positional arguments:", style.title)}\n")
             if len([a for a in self.data.arguments if a.data.is_positional()]) > 0
             else ""
         )
         for arg in self.data.arguments:
             if arg.data.is_named():
-                named_arguments += f"    {arg.data.alias_help_text()}{f': {arg.data.help}' if arg.data.help is not None else ''}\n"
+                named_arguments += f"    {apply_style(arg.data.alias_help_text(), style.named_arg)}{f": {arg.data.help}" if arg.data.help is not None else ""}\n"
             else:
-                positional_arguments += f"    {arg.data.id.upper()}{f': {arg.data.help}' if arg.data.help is not None else ''}\n"
+                positional_arguments += f"    {apply_style(arg.data.id.upper(), style.positional_arg)}{f": {arg.data.help}" if arg.data.help is not None else ""}\n"
 
         # ========= Print propagated arguments ===========
         propagated_arguments: str = ""
-        propagated_positional_arguments_strings: dict[str, list[str]] = defaultdict(
+        cmds_propagated_positional_arguments: dict[str, list[str]] = defaultdict(
             list[str]
         )
-        propagated_named_arguments_strings: dict[str, list[str]] = defaultdict(
-            list[str]
-        )
+        cmds_propagated_named_arguments: dict[str, list[str]] = defaultdict(list[str])
         sub_cmds: list[str] = []
         last_parent = self._parent
 
@@ -290,53 +363,62 @@ class Command:
                 if a.data.is_named() and a.data.propagate
             ]
 
-            propagated_named_arguments = ""
+            # Check if there are propagated arguments, if not skip subcmd
+            if len(propagated_positional_args) + len(propagated_named_args) == 0:
+                last_parent = last_parent._parent
+                continue
+            
+            for arg in propagated_named_args:
+                cmds_propagated_named_arguments[last_parent.data.name].append(
+                    f"{apply_style(arg.data.alias_help_text(), style.named_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}"
+                )
 
             for arg in propagated_positional_args:
-                propagated_positional_arguments_strings[last_parent.data.name].append(
-                    f"{arg.data.id.upper()}{f': {arg.data.help}' if arg.data.help is not None else ''}"
-                )
-            for arg in propagated_named_args:
-                propagated_named_arguments_strings[last_parent.data.name].append(
-                    f"{arg.data.alias_help_text()}{f': {arg.data.help}' if arg.data.help is not None else ''}"
+                cmds_propagated_positional_arguments[last_parent.data.name].append(
+                    f"{apply_style(arg.data.id.upper(), style.positional_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}"
                 )
 
             sub_cmds.insert(0, last_parent.data.name)
             last_parent = last_parent._parent
 
-        propagated_arguments += "Propagated arguments:\n" if len(sub_cmds) > 0 else ""
+        propagated_arguments += (
+            (f"\n{apply_style('Propagated arguments:', style.title)}\n")
+            if len(sub_cmds) > 0
+            else ""
+        )
         for sub_cmd in sub_cmds:
-            propagated_sub_cmd_arguments = f"    {sub_cmd}:\n"
+            # Each sub command name
+            propagated_sub_cmd_arguments = (
+                f"    {apply_style(sub_cmd + ':', style.sub_command)}\n"
+            )
 
             propagated_positional_arguments: str = (
-                "        Positional arguments:\n"
-                if len(propagated_positional_arguments_strings) > 0
+                f"        {apply_style('Positional arguments:', style.title)}\n"
+                if len(cmds_propagated_positional_arguments) > 0
                 else ""
             )
             propagated_named_arguments: str = (
-                "        Named arguments:\n"
-                if len(propagated_named_arguments_strings) > 0
+                f"        {apply_style('Named arguments:', style.title)}\n"
+                if len(cmds_propagated_named_arguments) > 0
                 else ""
             )
 
-            for propagated_arg in propagated_positional_arguments_strings[sub_cmd]:
+            for propagated_arg in cmds_propagated_positional_arguments[sub_cmd]:
                 propagated_positional_arguments += f"            {propagated_arg}\n"
-            for propagated_arg in propagated_named_arguments_strings[sub_cmd]:
+            for propagated_arg in cmds_propagated_named_arguments[sub_cmd]:
                 propagated_named_arguments += f"            {propagated_arg}\n"
 
             propagated_sub_cmd_arguments += propagated_positional_arguments
-            propagated_sub_cmd_arguments += "\n" + propagated_named_arguments
+            propagated_sub_cmd_arguments += f"{'\n' if len(propagated_positional_args) > 0 else ''}{propagated_named_arguments + '\n' if len(propagated_named_args) > 0 else ''}"
 
             propagated_arguments += propagated_sub_cmd_arguments
 
         help_print(
-            f"{current_command_help}"
-            f"Usage: {full_command_path} {full_positional_names}[{full_named_names[:-2]}]"
-            "\n"
-            "\n"
-            f"{subcommands_available}\n"
-            f"{positional_arguments}\n"
-            f"{named_arguments}\n"
+            f"{usage}"
+            f"{command_help}"
+            f"{subcommands_available}"
+            f"{positional_arguments}"
+            f"{named_arguments}"
             f"{propagated_arguments}"
         )
 
@@ -394,7 +476,9 @@ class Command:
                 if command_chain[i].data.no_args_requests_help:
                     command_chain[i]._show_help()
                 raise ClapyParsingError(
-                    f"No arguments supplied for command '{command_chain[i].data.name}'."
+                    ERROR_MSGS[ClapyErrors.NO_ARGUMENTS].format(
+                        command_chain[i].data.name
+                    )
                 )
 
         # Check mandatory subcommand
@@ -404,7 +488,9 @@ class Command:
         ):
             options: str = ", ".join(sub for sub in command_chain[-1].data.subcommands)
             raise ClapyParsingError(
-                f"Mandatory subcommand expected for command '{command_chain[-1].data.name}'. Options: {options}"
+                ERROR_MSGS[ClapyErrors.MISSING_MANDATORY_SUBCOMMAND].format(
+                    command_chain[-1].data.name, options
+                )
             )
 
         return (command_chain, subarg_lists)
@@ -460,7 +546,9 @@ class Command:
         for alias in consumed_values:
             arg_data: _ArgData = named_args_map[alias]
             if arg_data.id not in named_args_ids_map:
-                raise ClapyParsingError(f"Repeated argument '{alias}'.")
+                raise ClapyParsingError(
+                    ERROR_MSGS[ClapyErrors.REPEATED_ARGUMENT].format(alias)
+                )
 
             parsed_arg: ParsedArg | None = None
             match arg_data.action:
@@ -475,7 +563,9 @@ class Command:
                         len(consumed_values[alias]) > 1
                         and arg_data.action is ArgAction.Set  # Doesn't apply to Append
                     ):
-                        raise ClapyParsingError(f"Repeated argument '{alias}'.")
+                        raise ClapyParsingError(
+                            ERROR_MSGS[ClapyErrors.REPEATED_ARGUMENT].format(alias)
+                        )
                     try:
                         flattened_values: tuple[str, ...] = tuple(
                             chain.from_iterable(consumed_values[alias])
@@ -489,12 +579,16 @@ class Command:
                             for v in parsed_values:
                                 if v not in arg_data.valid_values:
                                     raise ClapyParsingError(
-                                        f"Invalid value for named argument '{alias}': '{v}'. (Valid values: {valid_values})"
+                                        ERROR_MSGS[
+                                            ClapyErrors.INVALID_NAMED_ARGUMENT_VALUES
+                                        ].format(alias, v, valid_values)
                                     )
                     except ValueError:
                         values: str = ", ".join(flattened_values)
                         raise ClapyParsingError(
-                            f"Wrong value{'s' if len(flattened_values) > 1 else ''} type for argument '{alias}'. Wrong values: {values}."
+                            ERROR_MSGS[ClapyErrors.WRONG_VALUE_TYPE].format(
+                                "s" if len(flattened_values) > 1 else "", alias, values
+                            )
                         )
 
                     if len(parsed_values) == 1:
@@ -529,7 +623,13 @@ class Command:
                     parsed_args[arg_data.id] = ParsedArg(0, arg_data.action)
                     continue
             raise ClapyParsingError(
-                f"Missing required named argument '{arg_data.long if arg_data.long is not None else ''}{'/' if arg_data.long is not None and arg_data.short is not None else ''}{arg_data.short if arg_data.short is not None else ''}'."
+                ERROR_MSGS[ClapyErrors.MISSING_REQUIRED_NAMED_ARGUMENT].format(
+                    arg_data.long if arg_data.long is not None else "",
+                    "/"
+                    if arg_data.long is not None and arg_data.short is not None
+                    else "",
+                    arg_data.short if arg_data.short is not None else "",
+                )
             )
 
         return parsed_args
@@ -599,7 +699,9 @@ class Command:
                     parsed_arg = ParsedArg(arg_data.default, arg_data.action)
                 else:
                     raise ClapyParsingError(
-                        f"Missing required positional argument: '{arg_data.id}'."
+                        ERROR_MSGS[
+                            ClapyErrors.MISSING_REQUIRED_POSITIONAL_ARGUMENT
+                        ].format(arg_data.id)
                     )
             else:
                 try:
@@ -608,7 +710,9 @@ class Command:
                     )
                 except ValueError:
                     raise ClapyParsingError(
-                        f"Wrong value{'s' if len(values) > 1 else ''} type for argument '{arg_data.id}'. Wrong values: {values}."
+                        ERROR_MSGS[ClapyErrors.WRONG_VALUE_TYPE].format(
+                            "s" if len(values) > 1 else "", arg_data.id, values
+                        )
                     )
 
                 # Check for valid values
@@ -617,7 +721,9 @@ class Command:
                     for v in parsed_values:
                         if v not in arg_data.valid_values:
                             raise ClapyParsingError(
-                                f"Invalid value for positional argument '{arg_data.id}': '{v}'. (Valid values: {valid_values})"
+                                ERROR_MSGS[
+                                    ClapyErrors.INVALID_POSITIONAL_ARGUMENT_VALUES
+                                ].format(arg_data.id, v, valid_values)
                             )
 
                 if len(parsed_values) == 1:
@@ -662,7 +768,9 @@ class Command:
                 if len(sub_list) > 0:
                     unknown_arguments = ", ".join(sub_list)
                     raise ClapyParsingError(
-                        f"Unknown extra arguments: '{unknown_arguments}'."
+                        ERROR_MSGS[ClapyErrors.UNKNOWN_EXTRA_ARGUMENTS].format(
+                            unknown_arguments
+                        )
                     )
 
             # 4. Nest all ParsedCommands
@@ -673,17 +781,24 @@ class Command:
                 last_pc = pc
 
             return parsed
+
         except ClapyParsingError as e:
-            print(e.msg)
+            if using_rich:
+                from rich.console import Console
+
+                Console().print(e.msg, highlight=False)
+            else:
+                print(e.msg)
+
             # raise e  # Enable this line so pytest can catch exceptions
-            sys.exit()
+            sys.exit(1)
 
     def parse(self) -> ParsedCommand:
         """
         Parses the Command using sys.argv.
         """
 
-        return self.parse_from(sys.argv)
+        return self.parse_from(sys.argv[1:])
 
 
 # Helper methods
@@ -756,6 +871,7 @@ def _parse_and_consume_values(
 ) -> list[str]:
     """
     Consumes the values required by an arg starting from 'start'.
+    Raises an exception if not enough values were parsed.
     """
     match arg_data.action:
         case ArgAction.StoreTrue | ArgAction.StoreFalse | ArgAction.Count:
@@ -776,7 +892,9 @@ def _parse_and_consume_values(
                     # Or minimum not reached
                     else:
                         raise ClapyParsingError(
-                            f"Missing argument values for '{arg_name}'. Received {len(values)}, expected at least {min_n}."
+                            ERROR_MSGS[ClapyErrors.MISSING_VALUES].format(
+                                arg_name, len(values), min_n
+                            )
                         )
 
                 values.append(arg)

@@ -1,5 +1,8 @@
 """Argument module from Clapy."""
 
+from ._errors import using_rich, ClapyErrors, ERROR_MSGS
+
+import sys
 from re import fullmatch
 from enum import Enum
 from dataclasses import dataclass
@@ -28,8 +31,8 @@ class ArgAction(Enum):
 
     Set = "set"  # Sets a value
     Append = "append"  # Appends each occurence of the argument's values to a list
-    StoreTrue = "store_true"  # Saves 'True'
-    StoreFalse = "store_false"  # Saves 'False'
+    StoreTrue = "store_true"  # Saves True
+    StoreFalse = "store_false"  # Saves False
     Count = "count"  # Counts times the argument is parsed
 
 
@@ -63,31 +66,47 @@ class _ArgData:
         return not self.is_positional()
 
     def alias_help_text(self) -> str:
-        return f"{self.short + ('/' if self.long is not None else '') if self.short is not None else ''}{self.long if self.long is not None else ''}"
+        return f"{self.short + ("/" if self.long is not None else "") if self.short is not None else ""}{self.long if self.long is not None else ""}"
 
     def validate(self) -> None:
         # Validate nargs
-        match self.action:
-            case ArgAction.Set | ArgAction.Append:
-                invalid: bool = False
-                value: int = -666
-                if isinstance(self.nargs, int):
-                    invalid = self.nargs <= 0
-                    value = self.nargs
-                elif isinstance(self.nargs, range):
-                    invalid = self.nargs.start <= 0
-                    value = self.nargs.start
+        try:
+            match self.action:
+                case ArgAction.Set | ArgAction.Append:
+                    invalid: bool = False
+                    value: int = -666
+                    if isinstance(self.nargs, int):
+                        invalid = self.nargs <= 0
+                        value = self.nargs
+                    elif isinstance(self.nargs, range):
+                        invalid = self.nargs.start <= 0
+                        value = self.nargs.start
 
-                if invalid:
-                    raise ClapyArgumentError(
-                        f"Argument '{self.id}' can't have a negative number of associated values ({value})."
-                    )
+                    if invalid:
+                        raise ClapyArgumentError(
+                            ERROR_MSGS[ClapyErrors.NEGATIVE_VALUES_AMOUNT].format(
+                                self.id, value
+                            )
+                        )
 
-            case ArgAction.StoreTrue | ArgAction.StoreFalse | ArgAction.Count:
-                if not isinstance(self.nargs, int) or self.nargs != 0:
-                    raise ClapyArgumentError(
-                        f"Argument '{self.id}' can't have multiple associated values with StoreTrue, StoreFalse or Count action."
-                    )
+                case ArgAction.StoreTrue | ArgAction.StoreFalse | ArgAction.Count:
+                    if not isinstance(self.nargs, int) or self.nargs != 0:
+                        raise ClapyArgumentError(
+                            ERROR_MSGS[ClapyErrors.TOO_HIGH_VALUES_AMOUNT].format(
+                                self.id
+                            )
+                        )
+
+        except ClapyArgumentError as e:
+            if using_rich:
+                from rich.console import Console
+
+                Console().print(e.msg, highlight=False)
+            else:
+                print(e.msg)
+
+            # raise e  # Enable this line so pytest can catch exceptions
+            sys.exit(1)
 
 
 class Arg:
@@ -110,7 +129,7 @@ class Arg:
         """
         if fullmatch(SHORT_ALIAS_REGEX, short) is None:
             raise ClapyArgumentError(
-                f"Short argument alias can only be a single character ({short})"
+                ERROR_MSGS[ClapyErrors.INVALID_SHORT_ALIAS].format(short)
             )
         self.data.short = short
         return self
@@ -122,7 +141,7 @@ class Arg:
         """
         if fullmatch(LONG_ALIAS_REGEX, long) is None:
             raise ClapyArgumentError(
-                f"Long argument alias should start with -- and have at least 2 characters ({long})."
+                ERROR_MSGS[ClapyErrors.INVALID_LONG_ALIAS].format(long)
             )
         self.data.long = long
         return self

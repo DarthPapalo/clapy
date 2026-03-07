@@ -9,6 +9,11 @@ license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = []
 
+[project.optional-dependencies]
+rich = [
+    "rich>=14.3.3",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
