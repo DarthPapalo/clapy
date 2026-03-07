@@ -192,12 +192,12 @@ class Arg:
         self.data.value_parser = func
         return self
 
-    def propagate(self, value: bool) -> Arg:
+    def propagate(self) -> Arg:
         """
         Makes the argument propagate to subcommands.
         It will be parsed if the command is the parent of the subcommand called.
         """
-        self.data.propagate = value
+        self.data.propagate = True
         return self
 
     def valid_values(self, valid_options: Iterable[Any]) -> Arg:

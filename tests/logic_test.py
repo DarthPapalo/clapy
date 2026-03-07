@@ -113,14 +113,14 @@ def test_complex_subcommands():
         Command("my-app")
         .arguments(
             [
-                Arg("verbose").long("--verbose").short("-v").count().propagate(True),
+                Arg("verbose").long("--verbose").short("-v").count().propagate(),
                 Arg("config")
                 .long("--config")
-                .propagate(True)
+                .propagate()
                 .value_parser(Path)
                 .default(""),
-                Arg("tag").long("--tag").propagate(True).action(ArgAction.Append),
-                Arg("input").value_parser(Path).propagate(True),
+                Arg("tag").long("--tag").propagate().action(ArgAction.Append),
+                Arg("input").value_parser(Path).propagate(),
             ]
         )
         .subcommand(
@@ -130,9 +130,9 @@ def test_complex_subcommands():
                     Arg("release")
                     .long("--release")
                     .action(ArgAction.StoreTrue)
-                    .propagate(True),
-                    Arg("opt-level").long("--opt-level").flag().propagate(True),
-                    Arg("targets").nargs("+").propagate(True),
+                    .propagate(),
+                    Arg("opt-level").long("--opt-level").flag().propagate(),
+                    Arg("targets").nargs("+").propagate(),
                 ]
             )
             .subcommand(
