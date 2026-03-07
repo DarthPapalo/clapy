@@ -1,4 +1,5 @@
 import pytest
+
 from clapy.argument import Arg, ArgAction
 from clapy.command import Command, ParsedCommand
 

@@ -1,14 +1,19 @@
 """Argument module from Clapy."""
 
-from ._errors import using_rich, ClapyErrors, ERROR_MSGS, ARGUMENT_RICH_ERROR_PREFIX, ARGUMENT_ERROR_PREFIX
-
 import sys
-from re import fullmatch
-from enum import Enum
-from dataclasses import dataclass
-from typing import Any, Iterable, Literal
 from collections.abc import Callable
+from dataclasses import dataclass
+from enum import Enum
+from re import fullmatch
+from typing import Any, Iterable, Literal
 
+from clapy._errors import (
+    ARGUMENT_ERROR_PREFIX,
+    ARGUMENT_RICH_ERROR_PREFIX,
+    ERROR_MSGS,
+    ClapyErrors,
+    using_rich,
+)
 
 LONG_ALIAS_REGEX: str = r"^--[^-].+$"
 SHORT_ALIAS_REGEX: str = r"^-[^-]$"
@@ -66,7 +71,7 @@ class _ArgData:
         return not self.is_positional()
 
     def alias_help_text(self) -> str:
-        return f"{self.short + ("/" if self.long is not None else "") if self.short is not None else ""}{self.long if self.long is not None else ""}"
+        return f"{self.short + ('/' if self.long is not None else '') if self.short is not None else ''}{self.long if self.long is not None else ''}"
 
     def validate(self) -> None:
         # Validate nargs
@@ -101,7 +106,9 @@ class _ArgData:
             if using_rich:
                 from rich.console import Console
 
-                Console(stderr=True).print(ARGUMENT_RICH_ERROR_PREFIX + e.msg, highlight=False)
+                Console(stderr=True).print(
+                    ARGUMENT_RICH_ERROR_PREFIX + e.msg, highlight=False
+                )
             else:
                 print(ARGUMENT_ERROR_PREFIX + e.msg, file=sys.stderr)
 

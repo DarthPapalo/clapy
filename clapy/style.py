@@ -1,3 +1,5 @@
+"""Style module from Clapy."""
+
 from dataclasses import dataclass
 
 
@@ -6,6 +8,7 @@ class ClapyRichStyle:
     """
     Theme used to format Clapy output when using `rich`.
     """
+
     command_help: str = ""
     usage: str = "b magenta"
     subcommand: str = "i hot_pink"

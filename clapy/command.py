@@ -1,26 +1,30 @@
 """Command module from Clapy."""
 
-from ._errors import using_rich, ClapyErrors, ERROR_MSGS, PARSING_RICH_ERROR_PREFIX, PARSING_ERROR_PREFIX
-
 import sys
-from re import fullmatch
-from itertools import chain, zip_longest
-from collections.abc import Callable
 from collections import defaultdict
-from typing import Any, Literal, Iterable, cast
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from itertools import chain, zip_longest
+from re import fullmatch
+from typing import Any, Iterable, Literal, cast
 
-from clapy.style import ClapyRichStyle
-from clapy.argument import (
-    Arg,
-    ParsedArg,
-    ArgAction,
-    _ArgData,
-    SHORT_EXPANDABLE_ALIAS_REGEX,
-    SHORT_ALIAS_REGEX,
-    LONG_ALIAS_REGEX,
+from clapy._errors import (
+    ERROR_MSGS,
+    PARSING_ERROR_PREFIX,
+    PARSING_RICH_ERROR_PREFIX,
+    ClapyErrors,
+    using_rich,
 )
-
+from clapy.argument import (
+    LONG_ALIAS_REGEX,
+    SHORT_ALIAS_REGEX,
+    SHORT_EXPANDABLE_ALIAS_REGEX,
+    Arg,
+    ArgAction,
+    ParsedArg,
+    _ArgData,
+)
+from clapy.style import ClapyRichStyle
 
 NAMED_ARGUMENTS_STOP_TOKEN = "--"
 NAMED_ARGUMENT_INLINE_VALUE_SEPARATOR = "="
@@ -249,24 +253,23 @@ class Command:
                     help_print = last_parent.data.help_print_method
                     break
                 last_parent = last_parent._parent
-            
+
             if help_print is None:
                 # If no inherited help print method
                 if using_rich:
-                    from rich.console import Console
                     import functools
 
+                    from rich.console import Console
+
                     help_print = functools.partial(
-                        Console(force_terminal=True).print, 
+                        Console(force_terminal=True).print,
                         highlight=False,
                         end="\n",
-                        
                     )
                     using_rich_override = True
                 else:
                     # If no inherited method AND no rich -> Use default python's print
                     help_print = print
-
 
         # ============ Set up rich style ============
         # We always set it even if (using_rich_override == False) to avoid typing errors...
@@ -278,7 +281,7 @@ class Command:
                     style = last_parent.data.rich_style
                     break
                 last_parent = last_parent._parent
-            
+
             if style is None:
                 # If no inherited style -> Load default ClapyRichStyle
                 style = ClapyRichStyle()
@@ -308,9 +311,9 @@ class Command:
             full_named_names += f"{n.alias_help_text()} | "
 
         usage = (
-            f"{apply_style("Usage:", style.usage)} "
+            f"{apply_style('Usage:', style.usage)} "
             f"{full_command_path}"
-            f"{" " + full_positional_names[:-1] if len(full_positional_names) > 0 else ""}{f" [{full_named_names[:-3]}]" if len(full_named_names[:-2]) > 0 else ""}\n"
+            f"{' ' + full_positional_names[:-1] if len(full_positional_names) > 0 else ''}{f' [{full_named_names[:-3]}]' if len(full_named_names[:-2]) > 0 else ''}\n"
         )
 
         # ========= Print current command help =========
@@ -321,28 +324,32 @@ class Command:
         )
 
         # ========= Print Subcommands =========
-        subcommands_available: str = f"\n{apply_style("Subcommands:", style.title)}\n" if len(self.data.subcommands) > 0 else ""
-        
+        subcommands_available: str = (
+            f"\n{apply_style('Subcommands:', style.title)}\n"
+            if len(self.data.subcommands) > 0
+            else ""
+        )
+
         for sub_cmd in self.data.subcommands.values():
-            subcommands_available += f"    {apply_style(sub_cmd.data.name + (":" if sub_cmd.data.help is not None else ""), style.subcommand)}{f" {apply_style(sub_cmd.data.help, style.subcommand_help)}" if sub_cmd.data.help is not None else ""}\n"
+            subcommands_available += f"    {apply_style(sub_cmd.data.name + (':' if sub_cmd.data.help is not None else ''), style.subcommand)}{f' {apply_style(sub_cmd.data.help, style.subcommand_help)}' if sub_cmd.data.help is not None else ''}\n"
 
         # ========= Print THIS Command arguments ===========
         named_arguments: str = (
-            (f"\n{apply_style("Named arguments:", style.title)}\n")
+            (f"\n{apply_style('Named arguments:', style.title)}\n")
             if len([a for a in self.data.arguments if a.data.is_named()]) > 0
             else ""
         )
 
         positional_arguments: str = (
-            (f"\n{apply_style("Positional arguments:", style.title)}\n")
+            (f"\n{apply_style('Positional arguments:', style.title)}\n")
             if len([a for a in self.data.arguments if a.data.is_positional()]) > 0
             else ""
         )
         for arg in self.data.arguments:
             if arg.data.is_named():
-                named_arguments += f"    {apply_style(arg.data.alias_help_text(), style.named_arg)}{f": {apply_style(arg.data.help, style.arg_help)}" if arg.data.help is not None else ""}\n"
+                named_arguments += f"    {apply_style(arg.data.alias_help_text(), style.named_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}\n"
             else:
-                positional_arguments += f"    {apply_style(arg.data.id.upper(), style.positional_arg)}{f": {apply_style(arg.data.help, style.arg_help)}" if arg.data.help is not None else ""}\n"
+                positional_arguments += f"    {apply_style(arg.data.id.upper(), style.positional_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}\n"
 
         # ========= Print propagated arguments ===========
         propagated_arguments: str = ""
@@ -369,7 +376,7 @@ class Command:
             if len(propagated_positional_args) + len(propagated_named_args) == 0:
                 last_parent = last_parent._parent
                 continue
-            
+
             for arg in propagated_named_args:
                 cmds_propagated_named_arguments[last_parent.data.name].append(
                     f"{apply_style(arg.data.alias_help_text(), style.named_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}"
@@ -411,10 +418,10 @@ class Command:
                 propagated_named_arguments += f"            {propagated_arg}\n"
 
             propagated_sub_cmd_arguments += propagated_positional_arguments
-            propagated_sub_cmd_arguments += f"{'\n' if len(propagated_positional_args) > 0 else ""}{propagated_named_arguments}"
+            propagated_sub_cmd_arguments += f"{'\n' if len(propagated_positional_args) > 0 else ''}{propagated_named_arguments}"
 
             propagated_arguments += propagated_sub_cmd_arguments
-        
+
         help_print(
             f"{usage}"
             f"{command_help}"
@@ -790,10 +797,12 @@ class Command:
             if using_rich:
                 from rich.console import Console
 
-                Console(stderr=True).print(PARSING_RICH_ERROR_PREFIX + e.msg, highlight=False)
+                Console(stderr=True).print(
+                    PARSING_RICH_ERROR_PREFIX + e.msg, highlight=False
+                )
             else:
                 print(PARSING_ERROR_PREFIX + e.msg, file=sys.stderr)
-            
+
             sys.exit(1)
 
     def parse(self) -> ParsedCommand:

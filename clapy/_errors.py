@@ -1,13 +1,13 @@
-"Clapy error messages."
+"""Error messages from Clapy."""
 
-from enum import Enum, auto
 import importlib.util
-
+from enum import Enum, auto
 
 ARGUMENT_RICH_ERROR_PREFIX = "[bright_red]Argument error:[/bright_red] "
 ARGUMENT_ERROR_PREFIX = "Argument error: "
 PARSING_RICH_ERROR_PREFIX = "[bright_red]Parsing error:[/bright_red] "
 PARSING_ERROR_PREFIX = "Parsing error: "
+
 
 class ClapyErrors(Enum):
     # Parsing errors
