@@ -109,7 +109,7 @@ def test_lists_args():
 def test_complex_subcommands():
     from pathlib import Path
 
-    cli = (
+    cli: Command = (
         Command("my-app")
         .arguments(
             [
@@ -198,3 +198,39 @@ def test_complex_subcommands():
     assert sub_sub_cmd.get_one("name") == "myimg"
     assert sub_sub_cmd.get_many("platform") == ("linux", "arm64")
     assert sub_sub_cmd.get_many("label") == ("stage=prod", "commit=abc")
+
+
+def test_default_argument_values():
+    cli: Command = Command("my-app").arguments(
+        [
+            Arg("mandatory"),
+            Arg("option1").long("--option-one").default("Option_one_value"),
+            Arg("option2").long("--option-two").default("Option_two_value"),
+        ]
+    )
+
+    parsed = cli.parse_from(["mandatory_value"])
+
+    assert parsed.get_one("mandatory") == "mandatory_value"
+    assert parsed.get_one("option1") == "Option_one_value"
+    assert parsed.get_one("option2") == "Option_two_value"
+
+    with pytest.raises(SystemExit) as ex:
+        cli.parse_from(["--option-one", "value_1"])
+        assert ex.value.code == 1
+
+
+def test_flag_arguments():
+    cli: Command = Command("my-app").arguments(
+        [
+            Arg("verbose").long("--verbose").short("-v").flag(),
+            Arg("debug").long("--debug").flag(),
+            Arg("no-execute").long("--no-execute").flag(False),
+        ]
+    )
+
+    parsed: ParsedCommand = cli.parse_from(["--verbose", "--no-execute"])
+
+    assert parsed.get_flag("verbose")
+    assert not parsed.get_flag("debug")
+    assert not parsed.get_flag("no-execute")
