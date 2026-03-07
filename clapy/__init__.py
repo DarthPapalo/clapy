@@ -2,7 +2,13 @@
 
 from .argument import Arg, ArgAction
 from .command import Command
-from .parsed_command import ClapyParsedCommandError, ParsedCommand
+from .parsed_command import (
+    InexistentParsedArgumentError,
+    NoParsedSubcommandError,
+    NotMultipleValuesError,
+    NotSingleValueError,
+    ParsedCommand,
+)
 from .style import ClapyRichStyle
 
 __all__: list[str] = [
@@ -11,5 +17,8 @@ __all__: list[str] = [
     "Command",
     "ParsedCommand",
     "ClapyRichStyle",
-    "ClapyParsedCommandError",
+    "InexistentParsedArgumentError",
+    "NoParsedSubcommandError",
+    "NotSingleValueError",
+    "NotMultipleValuesError",
 ]

@@ -3,17 +3,53 @@
 from dataclasses import dataclass
 from typing import Any
 
-from clapy._errors import ERROR_MSGS, ClapyErrors
 from clapy.argument import ArgAction, ParsedArg
 
 
 @dataclass(slots=True)
-class ClapyParsedCommandError(Exception):
+class InexistentParsedArgumentError(Exception):
     """
-    Clapy Exception class for errors occurred when fetching from a ParsedCommand.
+    Clapy Exception class for errors occurred when fetching inexistent arguments from a ParsedCommand.
     """
 
-    msg: str
+    id: str
+
+    def __repr__(self) -> str:
+        return f"No parsed argument found for id '{self.id}'"
+
+
+@dataclass(slots=True)
+class NoParsedSubcommandError(Exception):
+    """
+    Clapy Exception class for errors occurred when fetching a inexistent subcommand from a ParsedCommand.
+    """
+
+    def __repr__(self) -> str:
+        return "No parsed subcommand found for ParsedCommand"
+
+
+@dataclass(slots=True)
+class NotSingleValueError(Exception):
+    """
+    Clapy Exception class for errors occurred when fetching a single value using `get_many` wihtout forcing a tuple.
+    """
+
+    id: str
+
+    def __repr__(self) -> str:
+        return f"Using `get_one` to retrieve a tuple of values from argument '{id}'. Use `get_many` or `get_any` instead"
+
+
+@dataclass(slots=True)
+class NotMultipleValuesError(Exception):
+    """
+    Clapy Exception class for errors occurred when fetching multiple values using `get_one`.
+    """
+
+    id: str
+
+    def __repr__(self) -> str:
+        return f"Using `get_many` to retrieve a single value from argument '{id}'. Use `get_one`, `get_any` or this method with `force` instead"
 
 
 class ParsedCommand:
@@ -31,11 +67,13 @@ class ParsedCommand:
         self._parsed_subcommand = None
         self._parsed_arguments = {}
 
-    def subcommand(self) -> ParsedCommand | None:
+    def subcommand(self) -> ParsedCommand:
         """
         Returns the invoked parsed subcommand.
         """
-        return self._parsed_subcommand
+        if self._parsed_subcommand is not None:
+            return self._parsed_subcommand
+        raise NoParsedSubcommandError()
 
     def subcommand_name(self) -> str | None:
         """
@@ -54,9 +92,7 @@ class ParsedCommand:
         parsed_arg: ParsedArg | None = self._parsed_arguments.get(id, None)
         if parsed_arg is not None:
             return parsed_arg.value
-        raise ClapyParsedCommandError(
-            ERROR_MSGS[ClapyErrors.INVALID_ARGUMENT_ID].format(id)
-        )
+        raise InexistentParsedArgumentError(id)
 
     def get_one(self, id: str) -> Any:
         """
@@ -67,13 +103,9 @@ class ParsedCommand:
         if parsed_arg is not None:
             assert parsed_arg.action in (ArgAction.Set, ArgAction.Append)
             if isinstance(parsed_arg.value, tuple):
-                raise ClapyParsedCommandError(
-                    f"Using get_one to retrieve a tuple of values from argument '{id}'. Use get_many or get_any instead."
-                )
+                raise NotSingleValueError(id)
             return parsed_arg.value
-        raise ClapyParsedCommandError(
-            ERROR_MSGS[ClapyErrors.INVALID_ARGUMENT_ID].format(id)
-        )
+        raise InexistentParsedArgumentError(id)
 
     def get_many(self, id: str, *, force: bool = False) -> tuple[Any, ...]:
         """
@@ -86,14 +118,10 @@ class ParsedCommand:
             if not isinstance(parsed_arg.value, tuple):
                 if force:
                     return (parsed_arg.value,)
-                raise ClapyParsedCommandError(
-                    f"Using get_many to retrieve a single value from argument '{id}'. Use get_one, get_any or this method with 'force' instead."
-                )
+                raise NotMultipleValuesError(id)
 
             return parsed_arg.value
-        raise ClapyParsedCommandError(
-            ERROR_MSGS[ClapyErrors.INVALID_ARGUMENT_ID].format(id)
-        )
+        raise InexistentParsedArgumentError(id)
 
     def get_flag(self, id: str) -> bool:
         """
@@ -104,9 +132,7 @@ class ParsedCommand:
         if parsed_arg is not None:
             assert parsed_arg.action in [ArgAction.StoreFalse, ArgAction.StoreTrue]
             return parsed_arg.value
-        raise ClapyParsedCommandError(
-            ERROR_MSGS[ClapyErrors.INVALID_ARGUMENT_ID].format(id)
-        )
+        raise InexistentParsedArgumentError(id)
 
     def get_count(self, id: str) -> int:
         """
@@ -117,6 +143,4 @@ class ParsedCommand:
         if parsed_arg is not None:
             assert parsed_arg.action is ArgAction.Count
             return parsed_arg.value
-        raise ClapyParsedCommandError(
-            ERROR_MSGS[ClapyErrors.INVALID_ARGUMENT_ID].format(id)
-        )
+        raise InexistentParsedArgumentError(id)
