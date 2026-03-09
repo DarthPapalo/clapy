@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import chain, zip_longest
 from re import fullmatch
-from typing import Any, Iterable, Literal, cast
+from typing import Any, Iterable, Literal, Never, cast
 
 from clapy._errors import (
     ERROR_MSGS,
@@ -139,7 +139,7 @@ class Command:
     # =============================================
     #                 Help methods
     # =============================================
-    def _show_help(self) -> None:
+    def _show_help(self) -> Never:
         help_print: Callable[[str], None] | None = self.data.help_print_method
         style: ClapyRichStyle | None = self.data.rich_style
         using_rich_override: bool = False
@@ -380,13 +380,21 @@ class Command:
 
         # Check for no args on last command
         if len(subarg_lists[-1]) == 0:
-            if command_chain[-1].data.no_args_requests_help:
+            mandatory_args = [
+                a for a in command_chain[-1].data.arguments if a.data.default is None
+            ]
+            if len(mandatory_args) == 0:
+                pass  # If it can be executed without args -> Skip this check
+            elif command_chain[-1].data.no_args_requests_help:
                 command_chain[-1]._show_help()
-            raise ClapyParsingError(
-                ERROR_MSGS[ClapyErrors.NO_ARGUMENTS].format(command_chain[-1].data.name)
-            )
+            else:
+                raise ClapyParsingError(
+                    ERROR_MSGS[ClapyErrors.NO_ARGUMENTS].format(
+                        command_chain[-1].data.name
+                    )
+                )
 
-        # Check mandatory subcommand or show help
+        # Check mandatory subcommand or ask to check the help
         if (
             command_chain[-1].data.mandatory_subcommand
             and len(command_chain[-1].data.subcommands) > 0
