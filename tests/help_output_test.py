@@ -157,7 +157,9 @@ def test_rich_style(capsys: pytest.CaptureFixture[str]):
         .subcommand(
             Command("subcmd")
             .help("My subcommand help")
-            .argument(Arg("option").long("--option").help("My option"))
+            .argument(
+                Arg("option").long("--option").help("My option").default("OptionValue")
+            )
         )
     )
 
@@ -189,7 +191,7 @@ def test_rich_style(capsys: pytest.CaptureFixture[str]):
             "My subcommand help\n"
             "\n"
             "[green b]Named arguments:[/green b]\n"
-            "    --option: [cyan i]My option[/cyan i]\n"
+            "    --option: [cyan i]My option[/cyan i] [cyan][Default: OptionValue][/cyan]\n"
             "\n"
         )
     )

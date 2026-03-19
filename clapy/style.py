@@ -19,3 +19,4 @@ class ClapyRichStyle:
     positional_arg: str = ""
     named_arg: str = ""
     arg_help: str = ""
+    arg_default: str = "cyan"

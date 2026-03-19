@@ -185,11 +185,31 @@ class Command:
                 # If no inherited style -> Load default ClapyRichStyle
                 style = ClapyRichStyle()
 
+        # ========= Helper formatting methods =========
         def apply_style(text: str, style: str) -> str:
             return (
                 f"[{style}]{text}[/{style}]"
                 if (using_rich_override and len(style) > 0)
                 else text
+            )
+
+        def argument_complete_help(arg: Arg) -> str:
+            return (
+                f"{apply_style(arg.data.alias_help_text(), style.named_arg) if arg.data.is_named() else apply_style(arg.data.id.upper(), style.positional_arg)}: "
+                + (
+                    apply_style(arg.data.help, style.arg_help)
+                    if arg.data.help is not None
+                    else ""
+                )
+                + (
+                    " "
+                    + apply_style(
+                        f"[Default: {arg.data.default_help_text()}]", style.arg_default
+                    )
+                    if arg.data.default is not None
+                    else ""
+                )
+                + "\n"
             )
 
         # ================ Print usage =================
@@ -246,9 +266,9 @@ class Command:
         )
         for arg in self.data.arguments:
             if arg.data.is_named():
-                named_arguments += f"    {apply_style(arg.data.alias_help_text(), style.named_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}\n"
+                named_arguments += f"    {argument_complete_help(arg)}"
             else:
-                positional_arguments += f"    {apply_style(arg.data.id.upper(), style.positional_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}\n"
+                positional_arguments += f"    {argument_complete_help(arg)}"
 
         # ========= Print propagated arguments ===========
         propagated_arguments: str = ""
@@ -278,12 +298,12 @@ class Command:
 
             for arg in propagated_named_args:
                 cmds_propagated_named_arguments[last_parent.data.name].append(
-                    f"{apply_style(arg.data.alias_help_text(), style.named_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}"
+                    f"        {argument_complete_help(arg)}"
                 )
 
             for arg in propagated_positional_args:
                 cmds_propagated_positional_arguments[last_parent.data.name].append(
-                    f"{apply_style(arg.data.id.upper(), style.positional_arg)}{f': {apply_style(arg.data.help, style.arg_help)}' if arg.data.help is not None else ''}"
+                    f"        {argument_complete_help(arg)}"
                 )
 
             sub_cmds.insert(0, last_parent.data.name)

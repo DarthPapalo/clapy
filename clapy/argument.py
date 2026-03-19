@@ -73,6 +73,13 @@ class _ArgData:
     def alias_help_text(self) -> str:
         return f"{self.short + ('/' if self.long is not None else '') if self.short is not None else ''}{self.long if self.long is not None else ''}"
 
+    def default_help_text(self) -> str:
+        return (
+            str(self.default)
+            if (not isinstance(self.default, Iterable) or isinstance(self.default, str))
+            else ", ".join(self.default)
+        )
+
     def validate(self) -> None:
         # Validate nargs
         try:
