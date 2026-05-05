@@ -322,12 +322,12 @@ class Command:
 
             propagated_positional_arguments: str = (
                 f"        {apply_style('Positional arguments:', style.title)}\n"
-                if len(cmds_propagated_positional_arguments) > 0
+                if len(cmds_propagated_positional_arguments[sub_cmd]) > 0
                 else ""
             )
             propagated_named_arguments: str = (
                 f"        {apply_style('Named arguments:', style.title)}\n"
-                if len(cmds_propagated_named_arguments) > 0
+                if len(cmds_propagated_named_arguments[sub_cmd]) > 0
                 else ""
             )
 
