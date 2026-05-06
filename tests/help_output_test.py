@@ -195,3 +195,62 @@ def test_rich_style(capsys: pytest.CaptureFixture[str]):
             "\n"
         )
     )
+
+
+def test_rich_style_propagated_args(capsys: pytest.CaptureFixture[str]):
+    my_style = ClapyRichStyle(
+        arg_help="cyan i",
+        title="green b",
+        usage="green b i",
+        subcommand_help="red",
+    )
+
+    cli = (
+        Command("my-app")
+        .arguments(
+            [
+                Arg("input").propagate().help("Input file"),
+                Arg("verbose")
+                .long("--verbose")
+                .short("-v")
+                .count()
+                .propagate()
+                .help("Increase verbosity"),
+                Arg("config").long("--config").propagate().help("Configuration file"),
+            ]
+        )
+        .help("This is my awesome command")
+        .style(my_style)
+        .subcommand(
+            Command("build")
+            .help("Build the project")
+            .argument(
+                Arg("release").long("--release").flag().help("Build in release mode")
+            )
+        )
+    )
+
+    with pytest.raises(SystemExit) as ex:
+        cli.parse_from(["build", "--help"])
+        assert ex.value.code == 0
+
+    captured = capsys.readouterr()
+    assert captured.out == rich_to_ansi(
+        (
+            "[green b i]Usage:[/green b i] my-app build [--release]\n"
+            "Build the project\n"
+            "\n"
+            "[green b]Named arguments:[/green b]\n"
+            "    --release: [cyan i]Build in release mode[/cyan i]\n"
+            "\n"
+            "[green b]Propagated arguments:[/green b]\n"
+            "    [i hot_pink]my-app:[/i hot_pink]\n"
+            "        [green b]Positional arguments:[/green b]\n"
+            "                    INPUT: [cyan i]Input file[/cyan i]\n"
+            "\n"
+            "        [green b]Named arguments:[/green b]\n"
+            "                    -v/--verbose: [cyan i]Increase verbosity[/cyan i]\n"
+            "                    --config: [cyan i]Configuration file[/cyan i]\n"
+            "\n"
+        )
+    )

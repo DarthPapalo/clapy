@@ -332,9 +332,9 @@ class Command:
             )
 
             for propagated_arg in cmds_propagated_positional_arguments[sub_cmd]:
-                propagated_positional_arguments += f"            {propagated_arg}\n"
+                propagated_positional_arguments += f"            {propagated_arg}"
             for propagated_arg in cmds_propagated_named_arguments[sub_cmd]:
-                propagated_named_arguments += f"            {propagated_arg}\n"
+                propagated_named_arguments += f"            {propagated_arg}"
 
             propagated_sub_cmd_arguments += propagated_positional_arguments
             propagated_sub_cmd_arguments += f"{'\n' if len(propagated_positional_args) > 0 else ''}{propagated_named_arguments}"
